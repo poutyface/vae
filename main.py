@@ -14,7 +14,7 @@ import cv2
 image_size = 96
 nbatch = 32
 n_input = image_size * image_size
-nz = 100
+nz = 30
 nc = 1
 ndf = 64
 
@@ -41,8 +41,8 @@ class VAE(Chain):
         y = chainer.Variable(y_data)
 
         # q(z|x,y)
-        rh1 = F.leaky_relu(self.recog1(x))
-        rh2 = F.leaky_relu(self.recog2(rh1))
+        rh1 = F.relu(self.recog1(x))
+        rh2 = F.relu(self.recog2(rh1))
         recog_mean = self.recog_mean(rh2)
         #recog_log_sigma = 0.5 * self.recog_log_sigma(rh2)
         recog_log_sigma = self.recog_log_sigma(rh2)
@@ -51,11 +51,11 @@ class VAE(Chain):
         eps = chainer.Variable(eps)
 
         # z = mu + sigma + epsilon
+        z = recog_mean + F.exp(0.5 * recog_log_sigma) * eps
         #z = recog_mean + F.exp(recog_log_sigma) * eps
-        z = recog_mean + F.exp(0.5*recog_log_sigma) * eps
 
-        gh1 = F.leaky_relu(self.gen1(z))
-        gh2 = F.leaky_relu(self.gen2(gh1))
+        gh1 = F.relu(self.gen1(z))
+        gh2 = F.relu(self.gen2(gh1))
         gen_mean = self.gen_mean(gh2)
         output = F.sigmoid(gen_mean)
         loss = F.mean_squared_error(output, y)
@@ -158,14 +158,15 @@ for epoch in xrange(500000):
     loss.backward()
     opt.update()
 
-    for j in range(0, 3):
-        img = output.data[j]
-        img = img * 255
-        img = img.reshape(image_size, image_size)
-        img = img.astype(np.uint8)
-        cv2.imshow("%d"%j, img)
+    if epoch % 100 == 0:
+        for j in range(0, 3):
+            img = output.data[j]
+            img = img * 255
+            img = img.reshape(image_size, image_size)
+            img = img.astype(np.uint8)
+            cv2.imshow("%d"%j, img)
 
-    cv2.waitKey(1)
+        cv2.waitKey(1)
 
     if epoch % 1000 == 0:
         for j in range(0, nbatch):
